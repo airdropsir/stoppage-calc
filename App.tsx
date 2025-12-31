@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { MonthRecord, AppSettings } from './types';
 import { DEFAULT_SETTINGS, INITIAL_DATA } from './constants';
@@ -141,6 +142,14 @@ function App() {
 
   const handleSettingsSave = (newSettings: AppSettings) => {
     setAppSettings(newSettings);
+  };
+
+  const handleImportData = (newData: MonthRecord[], newSettings: AppSettings) => {
+    // Merge imported data with structure to be safe
+    const mergedData = mergeWithInitial(newData, INITIAL_DATA);
+    setData(mergedData);
+    setAppSettings(newSettings);
+    // This will trigger the useEffect to save to server/localStorage
   };
 
   const onSettingsClick = () => {
@@ -366,7 +375,9 @@ function App() {
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
         settings={settings}
+        data={data}
         onSave={handleSettingsSave}
+        onImportData={handleImportData}
         onOpenStoppageEntry={() => setIsStoppageEntryOpen(true)}
         onOpenProducedTonnage={() => setIsProducedTonnageOpen(true)}
       />

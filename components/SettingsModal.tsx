@@ -1,12 +1,15 @@
-import React from 'react';
-import { AppSettings } from '../types';
-import { X, Save, Clock, Factory } from 'lucide-react';
+
+import React, { useRef } from 'react';
+import { AppSettings, MonthRecord } from '../types';
+import { X, Save, Clock, Factory, Download, Upload } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   settings: AppSettings;
+  data: MonthRecord[]; // Added data prop for export
   onSave: (newSettings: AppSettings) => void;
+  onImportData: (importedData: MonthRecord[], importedSettings: AppSettings) => void; // Added import handler
   onOpenStoppageEntry: () => void;
   onOpenProducedTonnage: () => void;
 }
@@ -15,11 +18,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen, 
   onClose, 
   settings, 
+  data,
   onSave, 
+  onImportData,
   onOpenStoppageEntry,
   onOpenProducedTonnage
 }) => {
   const [localSettings, setLocalSettings] = React.useState<AppSettings>(settings);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     setLocalSettings(settings);
@@ -31,16 +37,98 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setLocalSettings(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
   };
 
+  // Export Data
+  const handleExport = () => {
+    const backup = {
+      data: data,
+      settings: localSettings,
+      exportDate: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup-${new Date().toLocaleDateString('fa-IR').replace(/\//g, '-')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Import Data
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const parsed = JSON.parse(content);
+        
+        if (parsed.data && Array.isArray(parsed.data) && parsed.settings) {
+          if (window.confirm('آیا مطمئن هستید؟ با این کار اطلاعات فعلی جایگزین فایل انتخاب شده می‌شوند.')) {
+            onImportData(parsed.data, parsed.settings);
+            alert('اطلاعات با موفقیت بازیابی شد.');
+            onClose();
+          }
+        } else {
+          alert('فرمت فایل نامعتبر است.');
+        }
+      } catch (err) {
+        alert('خطا در خواندن فایل.');
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="bg-slate-800 text-white p-4 flex justify-between items-center sticky top-0">
-          <h3 className="text-lg font-bold">تنظیمات و ثوابت</h3>
+          <h3 className="text-lg font-bold">تنظیمات و پشتیبان‌گیری</h3>
           <button onClick={onClose}><X size={20} /></button>
         </div>
         
         <div className="p-6 space-y-4">
           
+          {/* Backup & Restore Section */}
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4 space-y-3">
+            <label className="block text-sm font-bold text-orange-900 mb-2">مدیریت داده‌ها (پشتیبان‌گیری)</label>
+            
+            <button 
+              onClick={handleExport}
+              className="w-full bg-white border border-orange-300 text-orange-800 hover:bg-orange-100 py-2 rounded-lg flex items-center justify-center gap-2 transition"
+            >
+              <Download size={18} />
+              دانلود فایل پشتیبان (Backup)
+            </button>
+            
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition"
+            >
+              <Upload size={18} />
+              بازنشانی اطلاعات از فایل
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept=".json" 
+              onChange={handleFileChange}
+            />
+            
+            <p className="text-[10px] text-orange-600/80 text-center leading-tight">
+              برای انتقال اطلاعات به سایت جدید، ابتدا از نسخه قدیمی «دانلود» کنید و در سایت جدید «بازنشانی» را بزنید.
+            </p>
+          </div>
+
+          <hr className="border-gray-200 my-4" />
+
           {/* Data Entry Buttons */}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4 space-y-3">
             <label className="block text-sm font-bold text-slate-800 mb-2">دسترسی سریع به ورود اطلاعات</label>
@@ -60,8 +148,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Factory size={18} />
               ثبت تناژ تولیدی
             </button>
-            
-            <p className="text-xs text-slate-500 mt-2 text-center">برای ثبت مقادیر ماهیانه کلیک کنید.</p>
           </div>
           
           <hr className="border-gray-200 my-4" />
